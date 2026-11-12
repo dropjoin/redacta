@@ -52,23 +52,29 @@
    or absence of Gemini Nano all surface as first-class states.
    ========================================================================== */
 
-/* Live config is injected at deploy time, never committed: the deploy copy
-   loads js/firebase-config.js (gitignored) before this module, and that
-   file sets globalThis.__REDACTA_FIREBASE_CONFIG__ from Firebase console >
-   Project settings. The committed tree always exports null here, which the
-   verification suite enforces, so no project config ever lands in git.
+/* Live config is injected at deploy time, never committed. Two equivalent
+   mechanisms, both read here at startup (see initHybrid):
+   (a) the deploy copy loads js/firebase-config.js (gitignored) before this
+       module, and that file sets globalThis.__REDACTA_FIREBASE_CONFIG__
+       from Firebase console > Project settings; or
+   (b) the gitignored js/firebase-config.js file simply sits next to this
+       module in the deployed copy, and initHybrid() imports it once.
+   The committed tree always exports null here, which the verification
+   suite enforces, so no project config ever lands in git.
    null = prototype simulation mode. */
 export const FIREBASE_CONFIG = globalThis.__REDACTA_FIREBASE_CONFIG__ ?? null;
 
 /* App Check is auto-enforced by the guided console setup. When a Firebase
-   project is configured, fill this in: the reCAPTCHA Enterprise site key
-   from the console, plus the debug token flow for localhost (see README and
-   SPIKES.md Spike 2). null = App Check initialisation is skipped; against
-   an enforced project, cloud calls will then fail with the real server
+   project is configured, the SAME gitignored deploy-time file sets
+   globalThis.__REDACTA_APP_CHECK_CONFIG__ to the reCAPTCHA Enterprise site
+   key from the console, plus the debug token flow for localhost (see
+   README and SPIKES.md Spike 2). Never hard-code either value in this
+   committed file. null = App Check initialisation is skipped; against an
+   enforced project, cloud calls will then fail with the real server
    error instead of failing silently. */
-export const APP_CHECK_CONFIG = null;
-// Example shape when configured:
-// export const APP_CHECK_CONFIG = {
+export const APP_CHECK_CONFIG = globalThis.__REDACTA_APP_CHECK_CONFIG__ ?? null;
+// Example shape of the injected object:
+// {
 //   recaptchaEnterpriseSiteKey: "6L…",
 //   debugToken: true, // localhost only: prints a debug token to register
 //                     // in console > Security > App Check > Manage debug
@@ -146,9 +152,27 @@ export function normaliseSource(value, fallback) {
   return fallback;
 }
 
+let configLoadAttempted = false;
+
 /** Initialise Firebase AI Logic if a config exists. Never throws. */
 export async function initHybrid() {
-  if (!FIREBASE_CONFIG) {
+  // Deploy-time config file: if no preset global exists, try once to load
+  // the gitignored js/firebase-config.js sitting next to this module. A
+  // missing file (a plain repo clone) rejects and simply means simulation
+  // mode; a present file sets the global(s) and live mode proceeds. This
+  // keeps the deployed copy identical to the repo plus one ignored file —
+  // no deploy-time edit of index.html is needed to go live.
+  if (!globalThis.__REDACTA_FIREBASE_CONFIG__ && !configLoadAttempted) {
+    configLoadAttempted = true;
+    try {
+      await import("./firebase-config.js");
+    } catch {
+      /* No deploy-time config file: simulation mode below. */
+    }
+  }
+  const config = globalThis.__REDACTA_FIREBASE_CONFIG__ ?? null;
+  const appCheckConfig = globalThis.__REDACTA_APP_CHECK_CONFIG__ ?? null;
+  if (!config) {
     state.mode = "simulation";
     state.reason = "No Firebase project configured yet — prototype simulation mode.";
     return { mode: state.mode, reason: state.reason };
@@ -159,22 +183,22 @@ export async function initHybrid() {
       import(/* @vite-ignore */ CDN("firebase-ai.js")),
     ]);
     state.sdk = { appMod, aiMod };
-    state.app = appMod.initializeApp(FIREBASE_CONFIG);
+    state.app = appMod.initializeApp(config);
     // Gemini Developer API provider (free tier on Spark). App Check is
     // enforced by the guided console setup; initialise it when configured
     // so cloud calls carry an attestation token.
-    if (APP_CHECK_CONFIG) {
+    if (appCheckConfig) {
       try {
         const appCheckMod = await import(/* @vite-ignore */ CDN("firebase-app-check.js"));
-        if (APP_CHECK_CONFIG.debugToken) {
+        if (appCheckConfig.debugToken) {
           // Localhost debug flow (docs Step 4): must be set BEFORE
           // initializeAppCheck. The printed token is registered in the
           // console under Security > App Check > Manage debug tokens.
-          self.FIREBASE_APPCHECK_DEBUG_TOKEN = APP_CHECK_CONFIG.debugToken;
+          self.FIREBASE_APPCHECK_DEBUG_TOKEN = appCheckConfig.debugToken;
         }
         appCheckMod.initializeAppCheck(state.app, {
           provider: new appCheckMod.ReCaptchaEnterpriseProvider(
-            APP_CHECK_CONFIG.recaptchaEnterpriseSiteKey
+            appCheckConfig.recaptchaEnterpriseSiteKey
           ),
           isTokenAutoRefreshEnabled: true,
         });
@@ -272,6 +296,99 @@ export async function prepareDeviceModel(onProgress) {
 }
 
 /**
+ * Parse the scan lane's raw model output. The responseConstraint should
+ * make this plain JSON, but a malformed reply must surface as a distinct,
+ * honest failure (code BAD_SCAN_OUTPUT) — never as a silent crash, and
+ * never misreported by the UI as an on-device refusal.
+ */
+export function parseScanOutput(rawText) {
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch (err) {
+    const e = new Error(`On-device scan returned output that is not valid JSON: ${err.message}`);
+    e.code = "BAD_SCAN_OUTPUT";
+    throw e;
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    const e = new Error("On-device scan returned JSON that is not a scan object.");
+    e.code = "BAD_SCAN_OUTPUT";
+    throw e;
+  }
+  return data;
+}
+
+const DOC_TYPES = ["contract", "payslip", "invoice", "medical_letter", "admin_letter", "other"];
+const SENSITIVITIES = ["critical", "high", "medium", "low"];
+
+/**
+ * Normalise a live scan result (schema shape, values only) into located
+ * spans over the scanned text. Defensive by necessity: model output is
+ * untrusted input. Guarantees, each covered by the verification suite:
+ *  - Non-string or empty values are skipped. (An empty value made the old
+ *    indexOf loop spin forever: indexOf("", from) === from, so `from`
+ *    never advanced.)
+ *  - Every occurrence of a value in the text becomes a span, but
+ *    duplicated model rows collapse: identical (start, end, type) spans
+ *    are emitted once, so counts and the entity list cannot inflate.
+ *  - Overlapping spans resolve longest-first per start offset, matching
+ *    the highlight view and the redaction builder, so the two can never
+ *    disagree about which spans exist.
+ *  - Missing/invalid fields get safe defaults instead of NaN/undefined
+ *    reaching the UI: confidence clamped to [0,1] (default 0.5),
+ *    sensitivity defaulted to "medium", redactByDefault derived from
+ *    sensitivity when absent (critical/high redact), documentType
+ *    defaulted to "other", sensitivityScore clamped to 0..100.
+ */
+export function normaliseScanData(data, text) {
+  const located = [];
+  for (const e of Array.isArray(data.entities) ? data.entities : []) {
+    if (!e || typeof e.value !== "string" || e.value.length === 0) continue;
+    const sensitivity = SENSITIVITIES.includes(e.sensitivity) ? e.sensitivity : "medium";
+    const confidence = Number.isFinite(e.confidence) ? Math.min(1, Math.max(0, e.confidence)) : 0.5;
+    const redactByDefault = typeof e.redactByDefault === "boolean"
+      ? e.redactByDefault
+      : sensitivity === "critical" || sensitivity === "high";
+    let from = 0;
+    for (;;) {
+      const i = text.indexOf(e.value, from);
+      if (i < 0) break;
+      located.push({
+        type: typeof e.type === "string" ? e.type : "other",
+        value: e.value,
+        confidence,
+        sensitivity,
+        redactByDefault,
+        start: i,
+        end: i + e.value.length,
+      });
+      from = i + e.value.length;
+    }
+  }
+  located.sort((a, b) => a.start - b.start || b.end - a.end);
+  const seen = new Set();
+  const entities = [];
+  let lastEnd = -1;
+  for (const e of located) {
+    const key = `${e.start}:${e.end}:${e.type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (e.start < lastEnd) continue; // overlapped by a longer, earlier span
+    entities.push(e);
+    lastEnd = e.end;
+  }
+  entities.forEach((e, i) => { e.id = `e${i + 1}`; });
+  return {
+    documentType: DOC_TYPES.includes(data.documentType) ? data.documentType : "other",
+    entities,
+    sensitivityScore: Number.isFinite(data.sensitivityScore)
+      ? Math.min(100, Math.max(0, Math.round(data.sensitivityScore)))
+      : 0,
+    localSummary: typeof data.localSummary === "string" ? data.localSummary : "",
+  };
+}
+
+/**
  * SCAN LANE (live). Runs ONLY_ON_DEVICE; a throw means Nano could not run
  * and the caller must stop — not fall back. Returns the parsed schema JSON
  * plus the SDK-reported inferenceSource for the ledger.
@@ -285,7 +402,7 @@ export async function scanOnDevice(rawText) {
   );
   const latencyMs = Math.round(performance.now() - started);
   return {
-    data: JSON.parse(result.response.text()),
+    data: parseScanOutput(result.response.text()),
     inferenceSource: normaliseSource(result.response.inferenceSource, "ON_DEVICE"),
     latencyMs,
   };
@@ -304,14 +421,16 @@ export async function analyseRedacted(redactedArtefact) {
     throw new TypeError("analyseRedacted requires a RedactedArtefact with redactedText");
   }
   if (!state.analysisModel) buildModels();
+  const documentType = typeof redactedArtefact.documentType === "string" ? redactedArtefact.documentType : "other";
+  const entityStats = redactedArtefact.entityStats && typeof redactedArtefact.entityStats === "object" ? redactedArtefact.entityStats : {};
   const prompt = [
     "You are analysing a REDACTED document. Personal data has already been",
     "removed on the owner's device; tokens like [PERSON_NAME] are expected.",
     "Explain, in plain language: (1) what this document commits each side to,",
     "(2) clauses or terms that deserve a second look and why, (3) every dated",
     "obligation or deadline still visible in the text.",
-    `Document type: ${redactedArtefact.documentType}`,
-    `Redaction stats: ${JSON.stringify(redactedArtefact.entityStats)}`,
+    `Document type: ${documentType}`,
+    `Redaction stats: ${JSON.stringify(entityStats)}`,
     "",
     redactedArtefact.redactedText,
   ].join("\n");

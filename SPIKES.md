@@ -2,21 +2,31 @@
 
 Prototype status (2026-11-09, updated 2026-11-12): the full product flow
 runs end to end in clearly-labelled simulation mode. `js/hybrid.js`
-implements the same flow against the real Firebase AI Logic SDK, but no
-Firebase project exists yet, so nothing below has been exercised against a
-live Gemini Nano. Each spike needs a real Chrome desktop (Chrome 139+,
-Prompt API stable for pages since Chrome 148) on a machine with ≥22 GB
-free disk and a GPU with >4 GB VRAM (or 16 GB RAM + 4 CPU cores). The
-Muse VM has no usable Chrome at all, so these are explicitly NOT verified
-yet.
+implements the same flow against the real Firebase AI Logic SDK. The
+Firebase project now exists ("redacta", ID redacta-440cf, Spark plan, AI
+Logic Get Started completed with the Gemini Developer API), and the web
+config lives only in the local gitignored `js/firebase-config.js` — but no
+live call has been exercised yet: App Check has no provider registered,
+enforcement is Unenforced, and no debug token exists. Each spike below
+needs a real Chrome desktop (Chrome 139+, Prompt API stable for pages
+since Chrome 148) on a machine with ≥22 GB free disk and a GPU with >4 GB
+VRAM (or 16 GB RAM + 4 CPU cores). The Muse VM has no usable Chrome at
+all, so these are explicitly NOT verified yet.
 
 ## Verified from the VM on 2026-11-12 (what this file does NOT claim is open)
 
-- `node test/verify.mjs`: 436 checks pass — span offsets real and
+- `node test/verify.mjs`: 568 checks pass — span offsets real and
   non-overlapping, local summaries leak no entity values, redaction
   removes every redacted span from the artefact, `SCAN_SCHEMA` in
   `js/hybrid.js` deep-equals `data/schema.json`, `inferenceSource`
-  normalisation accepts both SDK spellings, no Firebase config committed.
+  normalisation accepts both SDK spellings, no Firebase config committed,
+  live scan output is parsed/normalised defensively (empty values,
+  duplicates, overlaps, missing fields), the payload audit separates
+  kept spans from real leaks, and every DOM id and sample file the UI
+  references resolves. A DOM-stub harness (kept out of the repo, run
+  from /tmp) additionally exercised the simulation flow end to end:
+  sample load + 404 handling, stale-scan invalidation on edit, keep-all
+  audit honesty, analysis and prepare flows — 23 checks, all passing.
 - SDK surface checked against the official Firebase docs AND the published
   CDN bundles: `GoogleAIBackend` is the real export (`GeminiDevBackend`
   does not exist — an earlier draft used it and would have thrown);
@@ -51,14 +61,22 @@ yet.
   confidence display are already product features, not patches.
 
 ## Spike 2 — Firebase project + App Check end-to-end
-- Create the Firebase project (Spark plan, no billing), register the web
-  app, run the guided console flow "AI Services > AI Logic > Get started",
-  choose the Gemini Developer API provider, paste the config into
-  `FIREBASE_CONFIG` in `js/hybrid.js`.
-- App Check is auto-enforced by that flow. On localhost, configure the
-  debug provider and register the debug token (console: App Check > Apps >
-  Manage debug tokens). A deployed demo needs a real attested domain —
-  deploy target is a subdomain of an existing owned domain per house rules.
+- DONE 12 Nov 2026: Firebase project created (Spark plan, no billing),
+  web app registered, guided console flow "AI Services > AI Logic > Get
+  started" completed with the Gemini Developer API provider. The web
+  config lives ONLY in the local gitignored `js/firebase-config.js`,
+  which `js/hybrid.js` imports once at startup (or reads via the preset
+  `globalThis.__REDACTA_FIREBASE_CONFIG__`). NEVER paste the config into
+  `js/hybrid.js` or any committed file — an earlier draft of this spike
+  said exactly that, and following it would have committed the config.
+- STILL OPEN: App Check has no provider registered, enforcement is
+  Unenforced, and no debug token exists. Register the reCAPTCHA
+  Enterprise provider, put the site key in the same gitignored file as
+  `globalThis.__REDACTA_APP_CHECK_CONFIG__`, and on localhost run the
+  debug-token flow (register the printed token in console: App Check >
+  Apps > Manage debug tokens). A deployed demo needs a real attested
+  domain — deploy target is a subdomain of an existing owned domain per
+  house rules.
 - Verify in the Firebase console that AI monitoring shows ONLY the cloud
   analysis requests, and that the scan produces zero Gemini API calls in
   the browser Network tab (dossier section 3, judge-verifiability checks).

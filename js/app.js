@@ -3,8 +3,9 @@
    otherwise js/sim.js drives a clearly-labelled simulation of the same flow.
    The redaction boundary is structural: analysis only ever receives the
    RedactedArtefact built in buildArtefact(). */
-import { initHybrid, deviceModelStatus, prepareDeviceModel, scanOnDevice, analyseRedacted } from "./hybrid.js";
+import { initHybrid, deviceModelStatus, prepareDeviceModel, scanOnDevice, analyseRedacted, normaliseScanData } from "./hybrid.js";
 import { simScan, simAnalyse, ENTITY_TYPES, wait } from "./sim.js";
+import { buildRedactedText, auditArtefact, keptBytes } from "./redact.js";
 
 const $ = (id) => document.getElementById(id);
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -23,7 +24,7 @@ function tweenNumber(el, to, suffix = "") {
 const els = {
   modePill: $("modePill"), engineNote: $("engineNote"),
   modelStatusPill: $("modelStatusPill"), modelMeter: $("modelMeter"), modelMeterLabel: $("modelMeterLabel"),
-  btnPrepare: $("btnPrepare"), docInput: $("docInput"), charCount: $("charCount"),
+  btnPrepare: $("btnPrepare"), docInput: $("docInput"), charCount: $("charCount"), sampleError: $("sampleError"),
   btnScan: $("btnScan"), docView: $("docView"), scanSweep: $("scanSweep"), scanSourceTag: $("scanSourceTag"),
   payloadBox: $("payloadBox"),
   scoreNum: $("scoreNum"), localSummary: $("localSummary"), entityList: $("entityList"),
@@ -31,7 +32,7 @@ const els = {
   redactedView: $("redactedView"), btnCopyRedacted: $("btnCopyRedacted"),
   payloadLen: $("payloadLen"), payloadHash: $("payloadHash"), payloadPii: $("payloadPii"), netNote: $("netNote"),
   btnAnalyse: $("btnAnalyse"), analysisOut: $("analysisOut"),
-  ledgerBody: $("ledgerBody"), ledgerStats: $("ledgerStats"),
+  ledgerBody: $("ledgerBody"), ledgerStats: $("ledgerStats"), ledgerRawBytes: $("ledgerRawBytes"),
   statRawBytes: $("statRawBytes"), statOnDevice: $("statOnDevice"), statSpans: $("statSpans"),
   btnExportRedacted: $("btnExportRedacted"), btnExportReport: $("btnExportReport"),
 };
@@ -45,6 +46,7 @@ const S = {
   analysis: null,
   ledger: [],
   totalSpansFound: 0,
+  rawBytesSent: 0,     // kept-span bytes actually handed to the live analysis lane
 };
 
 /* ---------------- hashing ---------------- */
@@ -100,13 +102,22 @@ function setModelStatus(status, label) {
 }
 async function onPrepare() {
   els.btnPrepare.disabled = true;
+  let prepared = false;
   if (S.engine === "live") {
     try {
       setModelStatus("downloading", "Downloading Gemini Nano…");
       const status = await prepareDeviceModel((p) => { els.modelMeter.style.width = `${Math.round(p * 100)}%`; });
       setModelStatus(status, status === "available" ? "Gemini Nano is ready on this device." : `Gemini Nano reports: ${status}.`);
+      prepared = status === "available";
     } catch (err) {
       setModelStatus("unavailable", `On-device model could not be prepared: ${err.message}`);
+    }
+    if (!prepared) {
+      // A failed prepare must not be logged as a success or labelled ready:
+      // the ledger entry and the button text below are only for a model
+      // that actually prepared. Re-enable so the user can retry.
+      els.btnPrepare.disabled = false;
+      return;
     }
   } else {
     setModelStatus("downloading", "Simulated download of Gemini Nano (multi-GB model, managed by Chrome)…");
@@ -114,25 +125,71 @@ async function onPrepare() {
     for (let p = 0; p <= 100; p += 10) { els.modelMeter.style.width = p + "%"; els.modelMeterLabel.textContent = `Simulated download… ${p}%`; await wait(110); }
     els.modelMeter.classList.remove("shimmer");
     setModelStatus("available", "Simulated state: Gemini Nano ready. Scans below run in simulation and are labelled SIM in the ledger.");
+    prepared = true;
   }
+  if (!prepared) return;
   await logLedger("On-device model prepared", "ON_DEVICE", "ONLY_ON_DEVICE", 0, "");
   els.btnPrepare.textContent = "On-device model ready";
 }
 
 /* ---------------- document input ---------------- */
 async function loadSample(id, btn) {
+  let res;
+  try {
+    res = await fetch(`data/samples/${id}.txt`);
+  } catch (err) {
+    showSampleError(`Could not load the sample document (${err.message}). Check the connection and try again.`);
+    return;
+  }
+  if (!res.ok) {
+    // Never pour an error page into the editor as if it were a document:
+    // a 404 body once loaded here as the "medical" sample. Leave the
+    // current text, sample id and chip state untouched.
+    showSampleError(`Could not load the sample document (HTTP ${res.status}). The current text is untouched.`);
+    return;
+  }
+  els.sampleError.hidden = true;
   document.querySelectorAll(".chip-sample").forEach((c) => c.classList.toggle("active", c === btn));
-  const res = await fetch(`data/samples/${id}.txt`);
   els.docInput.value = await res.text();
   S.sampleId = id;
   onInputChanged();
+}
+function showSampleError(msg) {
+  els.sampleError.textContent = msg;
+  els.sampleError.hidden = false;
+}
+/* A scan's span offsets belong to the exact text that was scanned. Once
+   the document changes, the scan, the artefact and the analysis are stale
+   and must not be reused: re-applying old offsets to new text misplaces
+   every highlight and can leave PII unredacted in the artefact. */
+function invalidateScan() {
+  if (!S.scan && !S.artefact) return;
+  S.scan = null; S.artefact = null; S.analysis = null;
+  els.docView.innerHTML = '<p class="doc-placeholder">Your document will appear here with every sensitive span highlighted in place, exactly where the scanner found it.</p>';
+  els.scanSourceTag.textContent = "awaiting scan";
+  els.scanSourceTag.className = "lane-tag lane-device";
+  els.entityList.innerHTML = '<p class="fineprint">No entities yet.</p>';
+  els.scoreNum.textContent = "—";
+  els.scoreNum.parentElement.className = "score-big";
+  els.localSummary.textContent = "Run a scan to see the on-device summary and the redaction plan. You stay in control: every span can be kept or redacted individually before anything leaves this page.";
+  els.redactedView.textContent = "The exact text a cloud model is allowed to see will appear here — nothing more, nothing hidden.";
+  els.payloadLen.textContent = "—";
+  els.payloadHash.textContent = "—";
+  els.payloadPii.textContent = "—";
+  els.payloadPii.style.color = "";
+  els.analysisOut.innerHTML = '<p class="fineprint">Analysis will appear here after the redacted document is sent.</p>';
+  els.btnCopyRedacted.disabled = true;
+  els.btnAnalyse.disabled = true;
+  els.btnExportRedacted.disabled = true;
+  els.btnExportReport.disabled = true;
 }
 function onInputChanged() {
   const n = els.docInput.value.length;
   els.charCount.textContent = `${n.toLocaleString()} characters`;
   els.btnScan.disabled = n === 0;
+  invalidateScan();
 }
-els.docInput.addEventListener("input", () => { S.sampleId = null; document.querySelectorAll(".chip-sample").forEach((c) => c.classList.remove("active")); onInputChanged(); });
+els.docInput.addEventListener("input", () => { S.sampleId = null; els.sampleError.hidden = true; document.querySelectorAll(".chip-sample").forEach((c) => c.classList.remove("active")); onInputChanged(); });
 document.querySelectorAll(".chip-sample").forEach((b) => b.addEventListener("click", () => loadSample(b.dataset.sample, b)));
 
 /* ---------------- scan ---------------- */
@@ -147,12 +204,18 @@ async function onScan() {
     try {
       const r = await scanOnDevice(text);
       liveSource = r.inferenceSource;
-      result = normaliseLiveScan(r.data, text);
+      result = normaliseScanData(r.data, text);
     } catch (err) {
-      /* ONLY_ON_DEVICE refused — that refusal IS the product guarantee. */
-      els.scanSourceTag.textContent = "scan refused — on-device unavailable";
+      /* Two honest failures, told apart: an ONLY_ON_DEVICE refusal (Nano
+         could not run — the guarantee working as designed) versus a
+         malformed model reply (BAD_SCAN_OUTPUT). Conflating them would
+         misreport a parse failure as a refusal. */
+      const badOutput = err.code === "BAD_SCAN_OUTPUT";
+      els.scanSourceTag.textContent = badOutput ? "scan failed — model output unparsable" : "scan refused — on-device unavailable";
       els.scanSourceTag.className = "lane-tag lane-sim";
-      els.localSummary.textContent = `The on-device model could not run (${err.message}). Redacta will not send a raw document to the cloud as a fallback, so the scan stopped here.`;
+      els.localSummary.textContent = badOutput
+        ? `The on-device model replied with output Redacta could not parse (${err.message}). Nothing was sent to the cloud. Try the scan again.`
+        : `The on-device model could not run (${err.message}). Redacta will not send a raw document to the cloud as a fallback, so the scan stopped here.`;
       els.btnScan.disabled = false; els.btnScan.textContent = "Scan on-device";
       els.btnScan.classList.remove("busy"); els.scanSweep.classList.remove("on");
       return;
@@ -166,20 +229,12 @@ async function onScan() {
   S.scan = result;
   S.totalSpansFound = result.entities.length;
   tweenNumber(els.statSpans, result.entities.length);
-  await logLedger("Document scan — entity extraction", "ON_DEVICE", "ONLY_ON_DEVICE", latency, text);
+  /* In live mode the ledger records the SDK-reported inferenceSource, not
+     an assumed value; in simulation the row carries the SIM tag. */
+  await logLedger("Document scan — entity extraction", S.engine === "live" ? (liveSource ?? "ON_DEVICE") : "ON_DEVICE", "ONLY_ON_DEVICE", latency, text);
   els.btnScan.classList.remove("busy"); els.scanSweep.classList.remove("on");
   renderScan(text, true);
   els.btnScan.disabled = false; els.btnScan.textContent = "Scan on-device";
-}
-function normaliseLiveScan(data, text) {
-  const entities = [];
-  for (const e of data.entities ?? []) {
-    let from = 0;
-    for (;;) { const i = text.indexOf(e.value, from); if (i < 0) break; entities.push({ ...e, start: i, end: i + e.value.length }); from = i + e.value.length; }
-  }
-  entities.sort((a, b) => a.start - b.start);
-  entities.forEach((e, i) => { e.id = `e${i + 1}`; });
-  return { documentType: data.documentType, entities, sensitivityScore: data.sensitivityScore, localSummary: data.localSummary };
 }
 function renderScan(text, animate = false) {
   const { entities, sensitivityScore, localSummary } = S.scan;
@@ -221,18 +276,11 @@ function renderScan(text, animate = false) {
 }
 
 /* ---------------- redaction + artefact ---------------- */
-function buildRedactedText() {
-  const text = els.docInput.value;
-  const spans = S.scan.entities.filter((e) => e.redact).sort((a, b) => b.start - a.start);
-  let out = text;
-  for (const e of spans) out = out.slice(0, e.start) + (ENTITY_TYPES[e.type]?.token ?? "[REDACTED]") + out.slice(e.end);
-  return out;
-}
 /* THE artefact: the only object the analysis lane may receive. */
 function buildArtefact() {
   const redacted = S.scan.entities.filter((e) => e.redact);
   return {
-    redactedText: buildRedactedText(),
+    redactedText: buildRedactedText(els.docInput.value, S.scan.entities),
     documentType: S.scan.documentType,
     entityStats: {
       total: redacted.length,
@@ -255,15 +303,26 @@ async function refreshRedaction() {
   els.btnExportRedacted.disabled = false;
   els.payloadLen.textContent = `${artefact.redactedText.length.toLocaleString()} chars · ${byteLen(artefact.redactedText).toLocaleString()} bytes`;
   els.payloadHash.textContent = await fingerprint(artefact.redactedText);
-  const leaked = S.scan.entities.filter((e) => e.redact && artefact.redactedText.includes(e.value));
-  els.payloadPii.textContent = leaked.length === 0 ? "No — verified against every redacted span" : `WARNING: ${leaked.length} span(s) still present`;
-  els.payloadPii.style.color = leaked.length === 0 ? "var(--green2)" : "var(--red)";
+  /* Honest payload check: a leak (redacted value still present) is a
+     failure; a kept span is the user's choice — but it IS verbatim raw
+     text in the payload, so it must be reported, never answered "No". */
+  const { leaked, kept } = auditArtefact(artefact.redactedText, S.scan.entities);
+  if (leaked.length > 0) {
+    els.payloadPii.textContent = `WARNING: ${leaked.length} redacted span(s) still present`;
+    els.payloadPii.style.color = "var(--red)";
+  } else if (kept.length > 0) {
+    els.payloadPii.textContent = `Yes — ${kept.length} kept span(s) remain in the payload (your choice)`;
+    els.payloadPii.style.color = "var(--orange)";
+  } else {
+    els.payloadPii.textContent = "No — verified against every redacted span";
+    els.payloadPii.style.color = "var(--green2)";
+  }
 }
 
 /* ---------------- analysis ---------------- */
 async function onAnalyse() {
   if (!S.artefact) return;
-  els.btnAnalyse.disabled = true; els.btnAnalyse.textContent = "Analysing in cloud…";
+  els.btnAnalyse.disabled = true; els.btnAnalyse.textContent = "Analysing…";
   /* The send moment: only the redacted payload leaves — the card lifts,
      glows sky (cloud lane colour), and the payload rows reveal in sequence. */
   const analysisCard = els.payloadBox.closest(".card");
@@ -275,16 +334,33 @@ async function onAnalyse() {
   }
   const t0 = performance.now();
   let out, source = "IN_CLOUD";
-  if (S.engine === "live") {
-    const r = await analyseRedacted(S.artefact); // hybrid.js: redacted artefact only
-    out = { summary: r.text, watchOuts: [], obligations: [], redactionNote: "" };
-    source = r.inferenceSource;
-  } else {
-    out = simAnalyse(S.artefact);
-    await wait(Math.min(out.simulatedLatencyMs, 1600));
+  try {
+    if (S.engine === "live") {
+      const r = await analyseRedacted(S.artefact); // hybrid.js: redacted artefact only
+      out = { summary: r.text, watchOuts: [], obligations: [], redactionNote: "" };
+      source = r.inferenceSource;
+    } else {
+      out = simAnalyse(S.artefact);
+      await wait(Math.min(out.simulatedLatencyMs, 1600));
+    }
+  } catch (err) {
+    /* A failed analysis must say so and free the button — the old code let
+       the rejection escape, leaving the button disabled on "Analysing…"
+       forever with no error shown. No ledger row: nothing was served. */
+    els.analysisOut.innerHTML = `<p class="fineprint">Analysis failed: ${esc(err.message)} The redacted document above is unchanged; try again.</p>`;
+    els.btnAnalyse.disabled = false; els.btnAnalyse.textContent = "Analyse redacted document";
+    return;
   }
   const latency = Math.round(performance.now() - t0);
   S.analysis = out;
+  if (S.engine === "live" && S.scan) {
+    // The "raw bytes sent" counters are computed, not hardcoded: kept
+    // spans are verbatim raw text inside the payload the lane received.
+    // (Simulation sends nothing over the network, so it adds nothing.)
+    S.rawBytesSent += keptBytes(S.artefact.redactedText, S.scan.entities);
+    els.statRawBytes.textContent = S.rawBytesSent.toLocaleString();
+    els.ledgerRawBytes.textContent = S.rawBytesSent.toLocaleString();
+  }
   await logLedger("Deep analysis of redacted document", source === "ON_DEVICE" ? "ON_DEVICE" : "IN_CLOUD", "PREFER_IN_CLOUD", latency, S.artefact.redactedText);
   els.analysisOut.innerHTML = `
     <div class="analysis-block"><h3>What this document is</h3><p>${esc(out.summary)}</p></div>
@@ -313,7 +389,7 @@ function download(name, content, type = "text/plain") {
 els.btnExportRedacted.addEventListener("click", () => { if (S.artefact) download("redacta-redacted-document.txt", S.artefact.redactedText); });
 els.btnExportReport.addEventListener("click", () => {
   const rows = S.ledger.map((e) => `| ${e.time} | ${e.step} | ${e.source}${e.simulated ? " (SIM)" : ""} | ${e.mode} | ${e.latencyMs} ms | ${e.payloadBytes} B | ${e.hash} |`).join("\n");
-  const md = `# Redacta session report\n\nDocument type: ${S.scan?.documentType ?? "—"} · Sensitivity score: ${S.scan?.sensitivityScore ?? "—"}/100 · Spans found: ${S.scan?.entities.length ?? 0}\n\n## Redacted document\n\n\`\`\`\n${S.artefact?.redactedText ?? ""}\n\`\`\`\n\n## Analysis\n\n${S.analysis ? `${S.analysis.summary}\n\nWatch-outs:\n${(S.analysis.watchOuts ?? []).map((w) => `- ${w}`).join("\n")}\n\nObligations:\n${(S.analysis.obligations ?? []).map((o) => `- ${o}`).join("\n")}` : "No analysis run."}\n\n## Privacy ledger\n\n| Time | Step | Source | Mode | Latency | Payload | Fingerprint |\n|---|---|---|---|---|---|---|\n${rows}\n\nRaw document bytes sent to the cloud in this session: 0.\n`;
+  const md = `# Redacta session report\n\nDocument type: ${S.scan?.documentType ?? "—"} · Sensitivity score: ${S.scan?.sensitivityScore ?? "—"}/100 · Spans found: ${S.scan?.entities.length ?? 0}\n\n## Redacted document\n\n\`\`\`\n${S.artefact?.redactedText ?? ""}\n\`\`\`\n\n## Analysis\n\n${S.analysis ? `${S.analysis.summary}\n\nWatch-outs:\n${(S.analysis.watchOuts ?? []).map((w) => `- ${w}`).join("\n")}\n\nObligations:\n${(S.analysis.obligations ?? []).map((o) => `- ${o}`).join("\n")}` : "No analysis run."}\n\n## Privacy ledger\n\n| Time | Step | Source | Mode | Latency | Payload | Fingerprint |\n|---|---|---|---|---|---|---|\n${rows}\n\nRaw document bytes sent to the cloud in this session: ${S.rawBytesSent}${S.engine === "live" ? "" : " (simulation: no network calls were made)"}.\n`;
   download("redacta-session-report.md", md, "text/markdown");
 });
 

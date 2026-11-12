@@ -124,6 +124,44 @@ guide's Step 4. It is inert until configured, and a failed initialisation
 surfaces as a warning in the UI instead of failing silently. The end-to-end
 flow is still Spike 2: unproven until real hardware runs it.
 
+## 12 Nov 2026 — audit pass: the payload check was lying, and other fixes
+
+A full audit of the prototype, done before any live run, found real bugs
+rather than style nits. The worst was mine: the "Contains raw personal
+data" check only looked at redacted spans, so pressing Keep all and then
+analysing produced a clean "No" for a payload identical to the raw
+document — and three places in the UI hardcoded "0 raw bytes sent". The
+check now reports kept spans as kept (your choice, but verbatim raw text
+in the payload), and the counters are computed from what the live lane
+actually receives. Simulation still counts zero, because simulation sends
+nothing.
+
+The live scan path had never run, and it showed. An empty entity value
+from the model would have hung the span locator forever
+(`indexOf("", n)` never advances). Duplicated model rows doubled the
+spans; a span plus its own sub-span ate surrounding text during
+redaction. All three are fixed in a shared normaliser with safe defaults
+for missing fields, and malformed model JSON is now a distinct failure
+instead of being misreported as an on-device refusal. The redaction
+builder moved into `js/redact.js` so the tests exercise the real code,
+and the scan ledger now records the SDK-reported `inferenceSource`
+instead of a hardcoded value.
+
+Smaller things, same pass: editing the document after a scan no longer
+leaves stale offsets pointing at new text (the scan is invalidated and
+must be re-run); a failed model prepare no longer logs a success row or
+labels the button ready; a failed analysis no longer strands the button
+disabled with no error; a missing sample file no longer pours a 404 page
+into the editor; the simulation's document type for the medical sample
+is now the schema-valid `medical_letter`; and the deploy-time config
+file is picked up automatically, so going live no longer needs a manual
+edit of the deployed HTML. The App Check site key travels in the same
+gitignored file, never in committed code. The suite grew from 436 to 568
+checks, and a throwaway DOM harness exercised the simulation flow end to
+end. None of this verifies anything on real Chrome hardware — the spikes
+in SPIKES.md are still open, and Spike 2's old instruction to paste the
+config into `js/hybrid.js` has been corrected before anyone followed it.
+
 ## 9 Nov 2026 — background: not black
 
 Same anonymity problem as the typeface: every project I ship sits on near-

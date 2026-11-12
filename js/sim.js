@@ -93,9 +93,14 @@ const CURATED = {
 const SUMMARIES = {
   contract: "A freelance services agreement between a company and an individual freelancer, covering scope, fees in two instalments, a fixed term, termination, confidentiality and liability terms.",
   payslip: "A monthly payslip for one employee, listing earnings, statutory deductions and net pay for a single pay period, marked confidential by the employer.",
-  medical: "A hospital referral letter for one patient, covering a specialist referral, a clinical summary with diagnoses and medication, and a requested follow-up date.",
+  medical_letter: "A hospital referral letter for one patient, covering a specialist referral, a clinical summary with diagnoses and medication, and a requested follow-up date.",
   other: "A document containing personal or sensitive data. Review each highlighted span before sharing it anywhere.",
 };
+
+/* Sample ids are file names, not schema values: the schema enum
+   (data/schema.json) says "medical_letter", not "medical". The scan result
+   must carry a schema-valid documentType, so sample ids are mapped here. */
+const SAMPLE_DOC_TYPES = { contract: "contract", payslip: "payslip", medical: "medical_letter" };
 
 function spansFromCurated(text, defs) {
   const out = [];
@@ -138,8 +143,9 @@ function spansFromGeneric(text) {
 function guessDocType(text) {
   const t = text.toLowerCase();
   if (t.includes("payslip") || t.includes("net pay")) return "payslip";
-  if (t.includes("referral") || t.includes("patient")) return "medical";
-  if (t.includes("agreement") || t.includes("invoice")) return "contract";
+  if (t.includes("referral") || t.includes("patient")) return "medical_letter";
+  if (t.includes("invoice")) return "invoice";
+  if (t.includes("agreement")) return "contract";
   return "other";
 }
 
@@ -162,7 +168,7 @@ export function simScan(text, sampleId) {
     e.id = `e${i + 1}`;
     e.redactByDefault = e.sensitivity === "critical" || e.sensitivity === "high";
   });
-  const documentType = sampleId ?? guessDocType(text);
+  const documentType = sampleId ? (SAMPLE_DOC_TYPES[sampleId] ?? guessDocType(text)) : guessDocType(text);
   return {
     documentType,
     entities,
@@ -201,7 +207,8 @@ export function simAnalyse(redactedArtefact) {
   const typeLine = {
     contract: "This agreement binds two parties to a defined scope of work for a fixed fee and a fixed term, with the redacted text preserving every commercial term while removing who the parties are.",
     payslip: "This payslip records one pay period. Earnings, deductions and net pay remain fully readable after redaction; only the employee's identity and payment destination were removed.",
-    medical: "This referral moves a patient from a general practitioner to a specialist. The clinical content is intact; direct identifiers were removed before the document reached the cloud.",
+    medical_letter: "This referral moves a patient from a general practitioner to a specialist. The clinical content is intact; direct identifiers were removed before the document reached the cloud.",
+    invoice: "This invoice records a payment obligation. The amounts and dates remain readable after redaction; only the parties' identifying details were removed.",
     other: "The document was analysed in redacted form only.",
   }[documentType] ?? "The document was analysed in redacted form only.";
 

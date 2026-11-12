@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Redacta — The document privacy studio</title>
+<title>Redacta | The document privacy studio</title>
 <meta name="description" content="Redacta scans and redacts sensitive documents entirely on-device with Firebase AI Logic hybrid inference. Only the redacted text may ever reach the cloud.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -76,6 +76,7 @@
         <button class="chip chip-sample" data-sample="payslip">Sample · Payslip</button>
         <button class="chip chip-sample" data-sample="medical">Sample · Medical referral</button>
       </div>
+      <p class="fineprint" id="sampleError" hidden></p>
       <textarea id="docInput" rows="12" spellcheck="false" placeholder="…or paste your own document here. In this prototype the bundled samples carry fake but plausible personal data, so you can watch the full flow safely."></textarea>
       <div class="input-actions">
         <button class="btn btn-primary" id="btnScan" disabled>Scan on-device</button>
@@ -160,7 +161,7 @@
       </div>
       <div class="ledger-foot">
         <span id="ledgerStats">0 requests · 0 on-device · 0 in-cloud</span>
-        <span class="ledger-guarantee">Raw document bytes sent to cloud, all session: <strong>0</strong></span>
+        <span class="ledger-guarantee">Raw document bytes sent to cloud, all session: <strong id="ledgerRawBytes">0</strong></span>
       </div>
       <div class="input-actions">
         <button class="btn btn-ghost" id="btnExportRedacted" disabled>Download redacted document (.txt)</button>

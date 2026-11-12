@@ -43,8 +43,9 @@ re-routing the raw document to the cloud. The refusal is the guarantee.
    redacted document is shown verbatim before anything else happens.
 4. **Cloud sees redacted text only.** The analysis model
    (`PREFER_IN_CLOUD`) is constructed from the redacted artefact. Before
-   sending, the UI shows the exact payload: length, SHA-256 fingerprint, and
-   a check that no redacted span value is still present.
+   sending, the UI shows the exact payload: length, SHA-256 fingerprint,
+   a check that no redacted span value is still present, and — honestly —
+   how many spans you chose to keep are still verbatim in the payload.
 5. **The privacy ledger.** Every inference step is logged with the SDK's
    own `response.inferenceSource` (normalised to `ON_DEVICE` / `IN_CLOUD`),
    mode, latency, payload size and fingerprint. The session ends with
@@ -95,16 +96,20 @@ SDK's `inferenceSource` enum values are lowercase (`on_device` /
    app, and run the guided console flow **AI Services > AI Logic >
    Get started**, choosing the Gemini Developer API provider.
 2. Put the web config in `js/firebase-config.js` (gitignored, never
-   committed) and load that file before `js/app.js` in the deployed copy.
-   `js/hybrid.js` reads it from `globalThis.__REDACTA_FIREBASE_CONFIG__`;
-   the committed tree always exports `null` there, enforced by the test
-   suite, so no project config ever lands in git.
-3. App Check is auto-enforced by that flow. Fill in `APP_CHECK_CONFIG`
-   with the reCAPTCHA Enterprise site key. For `localhost` development,
-   set the debug token flow (`self.FIREBASE_APPCHECK_DEBUG_TOKEN`) and
-   register the printed token in the console under **Security > App Check
-   > Apps > Manage debug tokens**. A deployed demo needs a real attested
-   domain.
+   committed) in the deployed copy. `js/hybrid.js` picks it up
+   automatically: at startup it imports that file once if it sits next
+   to the module, or reads the preset
+   `globalThis.__REDACTA_FIREBASE_CONFIG__` if the deploy loads the file
+   as a classic script before `js/app.js`. Either way the committed tree
+   always exports `null` there, enforced by the test suite, so no project
+   config ever lands in git. Never paste the config into `js/hybrid.js`.
+3. App Check is auto-enforced by that flow. Put the reCAPTCHA Enterprise
+   site key in the same gitignored file as
+   `globalThis.__REDACTA_APP_CHECK_CONFIG__` (never in committed code).
+   For `localhost` development, set the debug token flow
+   (`self.FIREBASE_APPCHECK_DEBUG_TOKEN`) and register the printed token
+   in the console under **Security > App Check > Apps > Manage debug
+   tokens**. A deployed demo needs a real attested domain.
 4. Open the app in Chrome on desktop (v139+, Prompt API stable for pages
    since v148) with ≥22 GB free disk. Click **Prepare on-device model**,
    then scan.
@@ -123,19 +128,22 @@ The submission is built to be checked, not believed:
   keep working; analysis degrades with an honest state.
 - **`chrome://on-device-internals`:** shows the Gemini Nano model present.
 - **The ledger:** every row carries the SDK-reported `inferenceSource`.
-- **The code:** `js/hybrid.js` is ~300 lines; the boundary is one function
+- **The code:** `js/hybrid.js` is ~450 lines; the boundary is one function
   signature.
 - **The tests:** `node test/verify.mjs` (no dependencies) checks span
-  integrity, the redaction guarantee, schema parity and source
-  normalisation — 436 checks, all passing at last run.
+  integrity, the redaction guarantee, schema parity, source
+  normalisation, hostile live-scan output, the payload audit and the
+  committed tree's freedom from secrets — 568 checks, all passing at
+  last run.
 
 ## Project layout
 
 ```
 index.html            the studio (single page, five steps + ledger)
 css/style.css         deep-green theme, Sora + Inter + IBM Plex Mono
-js/app.js             UI orchestration, redaction builder, exports
+js/app.js             UI orchestration, exports, ledger
 js/hybrid.js          real Firebase AI Logic module (two lanes, one boundary)
+js/redact.js          pure redaction builder + payload audit (shared, tested)
 js/sim.js             labelled simulation engine (prototype mode)
 data/schema.json      structured-output schema (on-device responseConstraint)
 data/samples/         three invented sample documents (no real personal data)
