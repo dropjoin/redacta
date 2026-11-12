@@ -94,7 +94,11 @@ SDK's `inferenceSource` enum values are lowercase (`on_device` /
 1. Create a Firebase project (Spark plan, no billing), register the web
    app, and run the guided console flow **AI Services > AI Logic >
    Get started**, choosing the Gemini Developer API provider.
-2. Paste the web config into `FIREBASE_CONFIG` in `js/hybrid.js`.
+2. Put the web config in `js/firebase-config.js` (gitignored, never
+   committed) and load that file before `js/app.js` in the deployed copy.
+   `js/hybrid.js` reads it from `globalThis.__REDACTA_FIREBASE_CONFIG__`;
+   the committed tree always exports `null` there, enforced by the test
+   suite, so no project config ever lands in git.
 3. App Check is auto-enforced by that flow. Fill in `APP_CHECK_CONFIG`
    with the reCAPTCHA Enterprise site key. For `localhost` development,
    set the debug token flow (`self.FIREBASE_APPCHECK_DEBUG_TOKEN`) and

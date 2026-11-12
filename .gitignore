@@ -1,0 +1,4 @@
+# Deploy-time Firebase web config. Never committed: it is injected into the
+# deployed copy only, and js/hybrid.js reads it via
+# globalThis.__REDACTA_FIREBASE_CONFIG__.
+js/firebase-config.js

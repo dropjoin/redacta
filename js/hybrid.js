@@ -52,10 +52,13 @@
    or absence of Gemini Nano all surface as first-class states.
    ========================================================================== */
 
-/* Paste the web config from Firebase console > Project settings after the
-   guided "AI Services > AI Logic > Get started" flow enables the Gemini
-   Developer API provider and App Check. null = prototype simulation mode. */
-export const FIREBASE_CONFIG = null;
+/* Live config is injected at deploy time, never committed: the deploy copy
+   loads js/firebase-config.js (gitignored) before this module, and that
+   file sets globalThis.__REDACTA_FIREBASE_CONFIG__ from Firebase console >
+   Project settings. The committed tree always exports null here, which the
+   verification suite enforces, so no project config ever lands in git.
+   null = prototype simulation mode. */
+export const FIREBASE_CONFIG = globalThis.__REDACTA_FIREBASE_CONFIG__ ?? null;
 
 /* App Check is auto-enforced by the guided console setup. When a Firebase
    project is configured, fill this in: the reCAPTCHA Enterprise site key
