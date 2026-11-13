@@ -7,7 +7,7 @@
 <meta name="description" content="Redacta scans and redacts sensitive documents entirely on-device with Firebase AI Logic hybrid inference. Only the redacted text may ever reach the cloud.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="fonts/fonts.css" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css?v=2">
 </head>
@@ -17,7 +17,7 @@
   <div class="wrap topbar-in">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2.5 4.5 5.6v5.6c0 4.9 3.2 8.4 7.5 10.3 4.3-1.9 7.5-5.4 7.5-10.3V5.6L12 2.5Z" stroke="#06130b" stroke-width="2" fill="#06FF89"/><path d="m8.8 12 2.2 2.2 4.2-4.4" stroke="#06130b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2.5 4.5 5.6v5.6c0 4.9 3.2 8.4 7.5 10.3 4.3-1.9 7.5-5.4 7.5-10.3V5.6L12 2.5Z" stroke="#062A30" stroke-width="2" fill="#1FC7E1"/><path d="m8.8 12 2.2 2.2 4.2-4.4" stroke="#062A30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
       <span class="brand-name">REDACTA</span>
       <span class="brand-sub">document privacy studio</span>
@@ -53,7 +53,44 @@
         <div class="hstat"><span class="hstat-num" id="statOnDevice">—</span><span class="hstat-label">of inference served on-device</span></div>
         <div class="hstat"><span class="hstat-num" id="statSpans">—</span><span class="hstat-label">sensitive spans found in this session</span></div>
       </div>
+      <div class="stack-strip"><span class="stack-label">Built on</span><span>Firebase AI Logic</span><span>Gemini Nano</span><span>Gemini</span><span>Chrome Prompt API</span><span>App Check</span></div>
     </div>
+  </section>
+
+  <!-- ============ WHAT REDACTA DOES ============ -->
+  <section class="promises" id="what">
+    <div class="rv">
+      <p class="eyebrow">What Redacta does</p>
+      <h2 class="section-title"><span class="t-line">Three moves, one boundary.</span><span class="t-line t-line-dim">Every one of them visible while it happens.</span></h2>
+    </div>
+    <div class="promise-grid">
+      <article class="promise-card rv">
+        <div class="mini-ui" aria-hidden="true">
+          <p class="mini-doc">This agreement is between <mark class="ent sev-critical">Dewi Anggraini</mark> and Northwind Studio. Payment of <mark class="ent sev-high">Rp 12.500.000</mark> is due to account <mark class="ent sev-critical">8842017395</mark> by <mark class="ent sev-low">14 November 2026</mark>.</p>
+        </div>
+        <h3>Scan on-device</h3>
+        <p>Gemini Nano reads the document inside your browser and returns structured entities: names, IDs, accounts, addresses, amounts, dates. Zero network traffic while it works.</p>
+      </article>
+      <article class="promise-card rv">
+        <div class="mini-ui" aria-hidden="true">
+          <div class="mini-row"><span class="ent-type sev-critical">PERSON_NAME</span><span class="mini-val">Dewi Anggraini</span><span class="mini-state state-redact">REDACT</span></div>
+          <div class="mini-row"><span class="ent-type sev-high">AMOUNT</span><span class="mini-val">Rp 12.500.000</span><span class="mini-state state-redact">REDACT</span></div>
+          <div class="mini-row"><span class="ent-type sev-low">DATE</span><span class="mini-val">14 November 2026</span><span class="mini-state state-keep">KEEP</span></div>
+        </div>
+        <h3>You approve every redaction</h3>
+        <p>Every span is listed with its type, confidence and sensitivity. Critical and high spans start redacted; you can keep or redact any span individually before anything else happens.</p>
+      </article>
+      <article class="promise-card rv">
+        <div class="mini-ui" aria-hidden="true">
+          <div class="mini-row"><span class="src src-device">ON_DEVICE</span><span class="mini-val">scan · 21 spans</span><span class="mini-meta">0 bytes out</span></div>
+          <div class="mini-row"><span class="src src-device">ON_DEVICE</span><span class="mini-val">redact · 18 spans</span><span class="mini-meta">0 bytes out</span></div>
+          <div class="mini-row"><span class="src src-cloud">IN_CLOUD</span><span class="mini-val">analyse · redacted only</span><span class="mini-meta">1,204 bytes</span></div>
+        </div>
+        <h3>The ledger remembers</h3>
+        <p>Every inference step is recorded with where it ran, what it carried, and a fingerprint of the payload. On-device rows can be cross-checked in the Network tab.</p>
+      </article>
+    </div>
+    <p class="fineprint promise-note rv">The panels above show the same components the studio uses, with invented data. The studio above does this live.</p>
   </section>
 
   <!-- ============ STUDIO ============ -->
@@ -186,42 +223,6 @@
         <button class="btn btn-ghost" id="btnExportReport" disabled>Download session report (.md)</button>
       </div>
     </article>
-  </section>
-
-  <!-- ============ WHAT REDACTA DOES ============ -->
-  <section class="promises" id="what">
-    <div class="rv">
-      <p class="eyebrow">What Redacta does</p>
-      <h2 class="section-title"><span class="t-line">Three moves, one boundary.</span><span class="t-line t-line-dim">Every one of them visible while it happens.</span></h2>
-    </div>
-    <div class="promise-grid">
-      <article class="promise-card rv">
-        <div class="mini-ui" aria-hidden="true">
-          <p class="mini-doc">This agreement is between <mark class="ent sev-critical">Dewi Anggraini</mark> and Northwind Studio. Payment of <mark class="ent sev-high">Rp 12.500.000</mark> is due to account <mark class="ent sev-critical">8842017395</mark> by <mark class="ent sev-low">14 November 2026</mark>.</p>
-        </div>
-        <h3>Scan on-device</h3>
-        <p>Gemini Nano reads the document inside your browser and returns structured entities: names, IDs, accounts, addresses, amounts, dates. Zero network traffic while it works.</p>
-      </article>
-      <article class="promise-card rv">
-        <div class="mini-ui" aria-hidden="true">
-          <div class="mini-row"><span class="ent-type sev-critical">PERSON_NAME</span><span class="mini-val">Dewi Anggraini</span><span class="mini-state state-redact">REDACT</span></div>
-          <div class="mini-row"><span class="ent-type sev-high">AMOUNT</span><span class="mini-val">Rp 12.500.000</span><span class="mini-state state-redact">REDACT</span></div>
-          <div class="mini-row"><span class="ent-type sev-low">DATE</span><span class="mini-val">14 November 2026</span><span class="mini-state state-keep">KEEP</span></div>
-        </div>
-        <h3>You approve every redaction</h3>
-        <p>Every span is listed with its type, confidence and sensitivity. Critical and high spans start redacted; you can keep or redact any span individually before anything else happens.</p>
-      </article>
-      <article class="promise-card rv">
-        <div class="mini-ui" aria-hidden="true">
-          <div class="mini-row"><span class="src src-device">ON_DEVICE</span><span class="mini-val">scan · 21 spans</span><span class="mini-meta">0 bytes out</span></div>
-          <div class="mini-row"><span class="src src-device">ON_DEVICE</span><span class="mini-val">redact · 18 spans</span><span class="mini-meta">0 bytes out</span></div>
-          <div class="mini-row"><span class="src src-cloud">IN_CLOUD</span><span class="mini-val">analyse · redacted only</span><span class="mini-meta">1,204 bytes</span></div>
-        </div>
-        <h3>The ledger remembers</h3>
-        <p>Every inference step is recorded with where it ran, what it carried, and a fingerprint of the payload. On-device rows can be cross-checked in the Network tab.</p>
-      </article>
-    </div>
-    <p class="fineprint promise-note rv">The panels above show the same components the studio uses, with invented data. The studio above does this live.</p>
   </section>
 
   <!-- ============ HOW IT WORKS ============ -->

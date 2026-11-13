@@ -1,2 +1,5 @@
+/* Sora is kept for fallback only; the live type system is Inter from
+   Google Fonts (400/500/600/700) + IBM Plex Mono. Inter is deliberately
+   NOT declared here: a local @font-face would override the Google
+   Fonts weights for the same family. */
 @font-face{font-family:'Sora';font-style:normal;font-weight:600 800;font-display:swap;src:url(sora-700.woff2) format('woff2')}
-@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url(inter-400.woff2) format('woff2')}

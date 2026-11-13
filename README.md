@@ -166,6 +166,13 @@ Chrome on desktop with Gemini Nano available; on any other browser the scan
 lane refuses rather than degrading to a cloud upload. The free-tier cloud
 lane inherits the Gemini Developer API's quotas and region behaviour.
 
+## Design reference
+
+The interface layout and component language are informed by the free
+Framer template Verity by Kadir Calik, rebuilt by hand in original
+code for this project. All app logic, copy and Redacta content are
+original work.
+
 ## License
 
 Apache-2.0. See [`LICENSE`](LICENSE). Copyright 2026 M Aziz Yahya.
