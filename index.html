@@ -22,6 +22,12 @@
       <span class="brand-name">REDACTA</span>
       <span class="brand-sub">document privacy studio</span>
     </div>
+    <nav class="topnav" aria-label="Page sections">
+      <a href="#studio">Studio</a>
+      <a href="#what">What it does</a>
+      <a href="#how">How it works</a>
+      <a href="#faq">Questions</a>
+    </nav>
     <div class="topbar-right">
       <span class="pill pill-sim" id="modePill">SIMULATION MODE</span>
       <span class="pill pill-ghost">#BuildHybridAI 2026</span>
@@ -33,17 +39,29 @@
 
   <!-- ============ HERO ============ -->
   <section class="hero">
-    <p class="eyebrow">Firebase AI Logic · Hybrid inference · Web</p>
-    <h1><span class="h-line">The cloud only ever sees</span><span class="h-line">the <span class="grad">redacted</span> document.</span></h1>
-    <p class="lede">Redacta scans contracts, payslips and medical letters for personal data <strong>entirely on your device</strong>, using Gemini Nano through Firebase AI Logic. You review and approve every redaction. Only then — and only the redacted text — may a cloud model see it for deeper analysis.</p>
-    <div class="hero-stats">
-      <div class="hstat"><span class="hstat-num" id="statRawBytes">0</span><span class="hstat-label">raw bytes sent to the cloud</span></div>
-      <div class="hstat"><span class="hstat-num" id="statOnDevice">—</span><span class="hstat-label">of inference served on-device</span></div>
-      <div class="hstat"><span class="hstat-num" id="statSpans">—</span><span class="hstat-label">sensitive spans found in this session</span></div>
+    <div class="aurora" aria-hidden="true"></div>
+    <div class="hero-in">
+      <p class="hero-badge"><span class="live-dot" aria-hidden="true"></span>On-device first · Nothing raw leaves this page</p>
+      <h1><span class="h-line">The cloud only ever sees</span><span class="h-line h-line-dim">the <span class="grad">redacted</span> document.</span></h1>
+      <p class="lede">Redacta scans contracts, payslips and medical letters for personal data <strong>entirely on your device</strong>, using Gemini Nano through Firebase AI Logic. You review and approve every redaction. Only then — and only the redacted text — may a cloud model see it for deeper analysis.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#studio">Open the studio</a>
+        <a class="btn btn-ghost" href="#how">How it works</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hstat"><span class="hstat-num" id="statRawBytes">0</span><span class="hstat-label">raw bytes sent to the cloud</span></div>
+        <div class="hstat"><span class="hstat-num" id="statOnDevice">—</span><span class="hstat-label">of inference served on-device</span></div>
+        <div class="hstat"><span class="hstat-num" id="statSpans">—</span><span class="hstat-label">sensitive spans found in this session</span></div>
+      </div>
     </div>
   </section>
 
   <!-- ============ STUDIO ============ -->
+  <section class="studio-head rv" aria-label="Studio introduction">
+    <p class="eyebrow">The studio</p>
+    <h2 class="section-title"><span class="t-line">Try it on a sample document.</span><span class="t-line t-line-dim">Nothing leaves the device until you say so.</span></h2>
+  </section>
+
   <section class="studio" id="studio">
 
     <!-- Model status -->
@@ -170,15 +188,51 @@
     </article>
   </section>
 
+  <!-- ============ WHAT REDACTA DOES ============ -->
+  <section class="promises" id="what">
+    <div class="rv">
+      <p class="eyebrow">What Redacta does</p>
+      <h2 class="section-title"><span class="t-line">Three moves, one boundary.</span><span class="t-line t-line-dim">Every one of them visible while it happens.</span></h2>
+    </div>
+    <div class="promise-grid">
+      <article class="promise-card rv">
+        <div class="mini-ui" aria-hidden="true">
+          <p class="mini-doc">This agreement is between <mark class="ent sev-critical">Dewi Anggraini</mark> and Northwind Studio. Payment of <mark class="ent sev-high">Rp 12.500.000</mark> is due to account <mark class="ent sev-critical">8842017395</mark> by <mark class="ent sev-low">14 November 2026</mark>.</p>
+        </div>
+        <h3>Scan on-device</h3>
+        <p>Gemini Nano reads the document inside your browser and returns structured entities: names, IDs, accounts, addresses, amounts, dates. Zero network traffic while it works.</p>
+      </article>
+      <article class="promise-card rv">
+        <div class="mini-ui" aria-hidden="true">
+          <div class="mini-row"><span class="ent-type sev-critical">PERSON_NAME</span><span class="mini-val">Dewi Anggraini</span><span class="mini-state state-redact">REDACT</span></div>
+          <div class="mini-row"><span class="ent-type sev-high">AMOUNT</span><span class="mini-val">Rp 12.500.000</span><span class="mini-state state-redact">REDACT</span></div>
+          <div class="mini-row"><span class="ent-type sev-low">DATE</span><span class="mini-val">14 November 2026</span><span class="mini-state state-keep">KEEP</span></div>
+        </div>
+        <h3>You approve every redaction</h3>
+        <p>Every span is listed with its type, confidence and sensitivity. Critical and high spans start redacted; you can keep or redact any span individually before anything else happens.</p>
+      </article>
+      <article class="promise-card rv">
+        <div class="mini-ui" aria-hidden="true">
+          <div class="mini-row"><span class="src src-device">ON_DEVICE</span><span class="mini-val">scan · 21 spans</span><span class="mini-meta">0 bytes out</span></div>
+          <div class="mini-row"><span class="src src-device">ON_DEVICE</span><span class="mini-val">redact · 18 spans</span><span class="mini-meta">0 bytes out</span></div>
+          <div class="mini-row"><span class="src src-cloud">IN_CLOUD</span><span class="mini-val">analyse · redacted only</span><span class="mini-meta">1,204 bytes</span></div>
+        </div>
+        <h3>The ledger remembers</h3>
+        <p>Every inference step is recorded with where it ran, what it carried, and a fingerprint of the payload. On-device rows can be cross-checked in the Network tab.</p>
+      </article>
+    </div>
+    <p class="fineprint promise-note rv">The panels above show the same components the studio uses, with invented data. The studio above does this live.</p>
+  </section>
+
   <!-- ============ HOW IT WORKS ============ -->
   <section class="how rv" id="how">
     <p class="eyebrow">How Redacta works</p>
-    <h2 class="how-title">One boundary, enforced in code — not in a policy PDF.</h2>
+    <h2 class="how-title"><span class="t-line">One boundary, enforced in code.</span><span class="t-line t-line-dim">Not in a policy PDF.</span></h2>
     <div class="steps">
-      <div class="step"><span class="step-num">1</span><h3>Prepare the on-device model</h3><p>On a user action, Redacta calls <code>initializeDeviceModel()</code> so Chrome downloads or confirms Gemini Nano. Download progress is a first-class state in the interface, never hidden.</p></div>
-      <div class="step"><span class="step-num">2</span><h3>Scan stays on the device</h3><p>The document is sent to a model created with <code>ONLY_ON_DEVICE</code> and a JSON schema constraint. It returns structured entities — names, IDs, accounts, addresses, amounts, dates — plus a sensitivity score and a local summary. This step produces zero network traffic.</p></div>
-      <div class="step"><span class="step-num">3</span><h3>You approve the redaction</h3><p>Every span is highlighted in place and listed with its type, confidence and sensitivity. Critical and high spans are redacted by default; you can keep or redact any span individually. The redacted document is shown verbatim before anything else happens.</p></div>
-      <div class="step"><span class="step-num">4</span><h3>Cloud sees redacted text only</h3><p>The analysis model is constructed from the redacted artefact. Its function signature accepts that artefact and nothing else, so raw personal data has no code path to the cloud. Each response reports its own <code>inferenceSource</code>, which the privacy ledger records next to the payload length and fingerprint.</p></div>
+      <div class="step"><span class="step-label">Step 1</span><h3>Prepare the on-device model</h3><p>On a user action, Redacta calls <code>initializeDeviceModel()</code> so Chrome downloads or confirms Gemini Nano. Download progress is a first-class state in the interface, never hidden.</p></div>
+      <div class="step"><span class="step-label">Step 2</span><h3>Scan stays on the device</h3><p>The document is sent to a model created with <code>ONLY_ON_DEVICE</code> and a JSON schema constraint. It returns structured entities — names, IDs, accounts, addresses, amounts, dates — plus a sensitivity score and a local summary. This step produces zero network traffic.</p></div>
+      <div class="step"><span class="step-label">Step 3</span><h3>You approve the redaction</h3><p>Every span is highlighted in place and listed with its type, confidence and sensitivity. Critical and high spans are redacted by default; you can keep or redact any span individually. The redacted document is shown verbatim before anything else happens.</p></div>
+      <div class="step"><span class="step-label">Step 4</span><h3>Cloud sees redacted text only</h3><p>The analysis model is constructed from the redacted artefact. Its function signature accepts that artefact and nothing else, so raw personal data has no code path to the cloud. Each response reports its own <code>inferenceSource</code>, which the privacy ledger records next to the payload length and fingerprint.</p></div>
     </div>
     <div class="scope-note">
       <h3>Scope and honesty notes</h3>
@@ -186,9 +240,105 @@
     </div>
   </section>
 
+  <!-- ============ WHY REDACTA ============ -->
+  <section class="compare" id="why">
+    <div class="rv">
+      <p class="eyebrow">Why Redacta</p>
+      <h2 class="section-title"><span class="t-line">Pasting a document into a chatbot</span><span class="t-line t-line-dim">sends the whole thing. Redacta does not.</span></h2>
+    </div>
+    <div class="compare-panel rv">
+      <div class="compare-col compare-other">
+        <h3>Pasting into a chatbot</h3>
+        <ul>
+          <li><span class="mark-x" aria-hidden="true">×</span>The raw document is uploaded in full</li>
+          <li><span class="mark-x" aria-hidden="true">×</span>No review step before it leaves</li>
+          <li><span class="mark-x" aria-hidden="true">×</span>No record of what was actually sent</li>
+          <li><span class="mark-x" aria-hidden="true">×</span>The model sees every name, ID and account</li>
+          <li><span class="mark-x" aria-hidden="true">×</span>One accidental paste is enough</li>
+        </ul>
+      </div>
+      <div class="compare-col compare-redacta">
+        <h3>Redacta</h3>
+        <ul>
+          <li><span class="mark-check" aria-hidden="true">✓</span>The scan runs on-device, zero upload</li>
+          <li><span class="mark-check" aria-hidden="true">✓</span>You review and approve every span first</li>
+          <li><span class="mark-check" aria-hidden="true">✓</span>The ledger records every step and payload</li>
+          <li><span class="mark-check" aria-hidden="true">✓</span>The cloud model sees redacted text only</li>
+          <li><span class="mark-check" aria-hidden="true">✓</span>The raw-bytes counter stays at 0 until you approve</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="faq" id="faq">
+    <div class="rv">
+      <p class="eyebrow">Questions</p>
+      <h2 class="section-title"><span class="t-line">Asked before anything is sent.</span><span class="t-line t-line-dim">Answered the same way the code behaves.</span></h2>
+    </div>
+    <div class="faq-grid">
+      <details class="faq-card rv">
+        <summary>Does my document leave my device before I approve?<span class="faq-plus" aria-hidden="true">+</span></summary>
+        <p>No. The scan runs on-device and produces no network traffic. The only thing that can ever be sent is the redacted artefact, and only after you press the analyse button yourself.</p>
+      </details>
+      <details class="faq-card rv">
+        <summary>What happens if Gemini Nano is not available?<span class="faq-plus" aria-hidden="true">+</span></summary>
+        <p>The scan lane refuses. It is created with ONLY_ON_DEVICE, so a missing model is a visible refusal, never a silent fallback that uploads your document to the cloud instead.</p>
+      </details>
+      <details class="faq-card rv">
+        <summary>What does SIM mean in the ledger?<span class="faq-plus" aria-hidden="true">+</span></summary>
+        <p>SIM marks a simulated inference step. This prototype build runs its inference in clearly labelled simulation mode; every simulated row says SIM in the ledger, and the production module implements the same flow against the real Firebase AI Logic SDK.</p>
+      </details>
+      <details class="faq-card rv">
+        <summary>Can the cloud model see names I chose to keep?<span class="faq-plus" aria-hidden="true">+</span></summary>
+        <p>Yes, and that is your explicit choice: spans you keep stay in the text. The payload audit tells kept spans apart from real leaks, and the payload box shows the fingerprint before anything is sent.</p>
+      </details>
+      <details class="faq-card rv">
+        <summary>Is redaction a legal guarantee?<span class="faq-plus" aria-hidden="true">+</span></summary>
+        <p>No. Redacta is a redaction assistant: a human reviews every span before a document is shared, and unusual documents can contain data types outside the extraction schema.</p>
+      </details>
+      <details class="faq-card rv">
+        <summary>What does the cloud actually receive?<span class="faq-plus" aria-hidden="true">+</span></summary>
+        <p>Exactly the redacted text shown in panel 4, plus the document type and entity counts. The payload box shows its length, its SHA-256 fingerprint, and whether it contains raw personal data, before you send it.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ FINAL CTA ============ -->
+  <section class="cta rv">
+    <div class="aurora aurora-cta" aria-hidden="true"></div>
+    <div class="cta-in">
+      <h2>Try it on the sample contract.</h2>
+      <p>Fake data, real flow. Watch the scan, approve the redactions, and check the ledger before anything reaches the cloud.</p>
+      <a class="btn btn-primary" href="#studio">Open the studio</a>
+    </div>
+  </section>
+
   <footer class="footer">
-    <p>Redacta — a #BuildHybridAI 2026 entry. Built with Firebase AI Logic hybrid inference: Gemini Nano on-device, Gemini in-cloud, one redaction boundary between them.</p>
-    <p class="fineprint">Sample documents contain invented personal data for demonstration. No real person's data is used anywhere in this prototype.</p>
+    <div class="footer-cols">
+      <div class="footer-brand">
+        <span class="brand-name">REDACTA</span>
+        <p>A #BuildHybridAI 2026 entry. Built with Firebase AI Logic hybrid inference: Gemini Nano on-device, Gemini in-cloud, one redaction boundary between them.</p>
+      </div>
+      <div class="footer-col">
+        <h3>Explore</h3>
+        <a href="#studio">Studio</a>
+        <a href="#what">What it does</a>
+        <a href="#how">How it works</a>
+        <a href="#faq">Questions</a>
+      </div>
+      <div class="footer-col">
+        <h3>Project</h3>
+        <a href="https://github.com/dropjoin/redacta">Source on GitHub</a>
+        <a href="#how">How the boundary works</a>
+        <a href="#faq">Honesty notes</a>
+      </div>
+      <div class="footer-col">
+        <h3>Honesty</h3>
+        <p>Sample documents contain invented personal data for demonstration. No real person's data is used anywhere in this prototype.</p>
+      </div>
+    </div>
+    <p class="fineprint footer-disclosure">Interface design informed by the free Framer template Verity by Kadir Calik, rebuilt by hand in original code. All app logic, copy and Redacta content are original work.</p>
   </footer>
 </main>
 
